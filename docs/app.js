@@ -40,22 +40,12 @@ function session() {
 }
 async function offlineApi(path,method,data) {
   const active=session();
-  if(path==='register' || path==='login') {
+  if(path==='login') {
     const username=data.username.trim().toLowerCase();
     const alias='dilek-login:'+username;
     let user=localAccount(localStorage.getItem(alias));
     let secret;
-    if(path==='register') {
-      if(!data.name.trim()) throw Error('Ad\u0131n\u0131 yaz.');
-      if(user) throw Error('Bu kullan\u0131c\u0131 ad\u0131 bu taray\u0131c\u0131da kay\u0131tl\u0131.');
-      const keys=await crypto.subtle.generateKey({...rsa,modulusLength:2048,publicExponent:new Uint8Array([1,0,1])},true,['encrypt','decrypt']);
-      const id=crypto.randomUUID(), salt=pack(crypto.getRandomValues(new Uint8Array(16))), iv=crypto.getRandomValues(new Uint8Array(12));
-      secret=pack(await crypto.subtle.exportKey('pkcs8',keys.privateKey));
-      const key=await passwordKey(data.password,salt);
-      user={id,name:data.name.trim(),salt,iv:pack(iv),pub:pack(await crypto.subtle.exportKey('spki',keys.publicKey)),locked:pack(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,utf.encode(secret)))};
-      localStorage.setItem(accountKey(id),JSON.stringify(user));
-      localStorage.setItem(alias,id);
-    } else {
+    {
       try {
         const key=await passwordKey(data.password,user.salt);
         secret=decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:unpack(user.iv)},key,unpack(user.locked)));
@@ -117,7 +107,7 @@ async function offlineApi(path,method,data) {
   return {id,name:info.name,isOwner:owner,letters,count:owner?letters.length:batch.count};
 }
 async function api(path, method = 'GET', data) {
-  if(offline) return offlineApi(path,method,data);
+  if(offline && path!=='register' && path!=='login') return offlineApi(path,method,data);
   if(pages){
     const res=await fetch('https://coplmjmvyawnfvyibigl.supabase.co/rest/v1/rpc/dilek_api',{
       method:'POST',headers:{'Content-Type':'application/json',apikey:'sb_publishable_Y1D-1pVkVYVovmljtjeYlg_M2YBYGSt'},
@@ -189,23 +179,23 @@ function submit(text, callback) {
     finally { button.disabled = false; }
   };
 }
-function auth(register) {
+function auth(register, oldAccount = false) {
   show(register ? 'A\u011fac\u0131n\u0131 olu\u015ftur' : 'Giri\u015f yap');
   if(!register){
     const hint=document.createElement('p');
-    hint.textContent=offline?'Bu giri\u015f bu taray\u0131c\u0131daki eski hesaplar i\u00e7indir.':'A\u011fac\u0131nda g\u00f6r\u00fcnen ad\u0131ndan farkl\u0131 olabilen kay\u0131tl\u0131 kullan\u0131c\u0131 ad\u0131n\u0131 yaz.';
+    hint.textContent=oldAccount?'Bu giri\u015f bu taray\u0131c\u0131daki eski hesaplar i\u00e7indir.':'A\u011fac\u0131nda g\u00f6r\u00fcnen ad\u0131ndan farkl\u0131 olabilen kay\u0131tl\u0131 kullan\u0131c\u0131 ad\u0131n\u0131 yaz.';
     form.append(hint);
-    if(pages && !offline && Object.keys(localStorage).some(k=>k.startsWith('dilek-owner:')))action('Bu cihazdaki eski hesab\u0131mla gir',()=>location.assign('?yerel=1&giris=1'),true);
+    if(pages && !oldAccount && Object.keys(localStorage).some(k=>k.startsWith('dilek-owner:')))action('Bu cihazdaki eski hesab\u0131mla gir',()=>auth(false,true),true);
   }
   if (register) input('A\u011fa\u00e7ta g\u00f6r\u00fcnecek ad\u0131n','name',50,{autocomplete:'nickname'});
   input('Kullan\u0131c\u0131 ad\u0131','username',24,{...(register ? {minLength:3,pattern:'[a-zA-Z0-9_]{3,24}',title:'3-24 karakter: a-z, 0-9 veya alt \u00e7izgi'} : {}),autocomplete:'username',autocapitalize:'none',spellcheck:false});
   input('\u015eifre \u00b7 en az 8 karakter','password',128,{type:'password',minLength:8,autocomplete:register?'new-password':'current-password'});
   submit(register?'Hesap olu\u015ftur':'Giri\u015f yap',async data => {
     data.username=data.username.trim();
-    const result = await api(register?'register':'login','POST',data);
-    saveToken(result.token);
-    if(offline && !register && queryId && location.hash){location.reload();return;}
-    const destination=link(result.account.id);
+    const result = oldAccount && !register ? await offlineApi('login','POST',data) : await api(register?'register':'login','POST',data);
+    if(!oldAccount) saveToken(result.token);
+    if(oldAccount && queryId===result.account.id && location.hash){location.reload();return;}
+    const destination=oldAccount ? offlineLink(result.account.id) : new URL('?agac='+encodeURIComponent(result.account.id),location.href).href;
     if(destination===location.href) location.reload(); else location.assign(destination);
   });
   action(register?'Zaten hesab\u0131m var':'Yeni hesap olu\u015ftur',() => auth(!register),true);
@@ -365,7 +355,7 @@ function drawTree() {
   ctx.closePath();ctx.fill();ctx.shadowBlur=0;
 }
 drawTree();
-initialize().then(()=>{if(offline && !account && new URL(location.href).searchParams.has('giris'))auth(false);});
+initialize().then(()=>{if(offline && !account && new URL(location.href).searchParams.has('giris'))auth(false,true);});
 let refreshing=false;
 setInterval(async()=>{
   if(!tree || document.hidden || refreshing || modal.open)return;

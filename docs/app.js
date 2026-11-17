@@ -191,14 +191,22 @@ function submit(text, callback) {
 }
 function auth(register) {
   show(register ? 'A\u011fac\u0131n\u0131 olu\u015ftur' : 'Giri\u015f yap');
+  if(!register){
+    const hint=document.createElement('p');
+    hint.textContent=offline?'Bu giri\u015f bu taray\u0131c\u0131daki eski hesaplar i\u00e7indir.':'A\u011fac\u0131nda g\u00f6r\u00fcnen ad\u0131ndan farkl\u0131 olabilen kay\u0131tl\u0131 kullan\u0131c\u0131 ad\u0131n\u0131 yaz.';
+    form.append(hint);
+    if(pages && !offline && Object.keys(localStorage).some(k=>k.startsWith('dilek-owner:')))action('Bu cihazdaki eski hesab\u0131mla gir',()=>location.assign('?yerel=1&giris=1'),true);
+  }
   if (register) input('A\u011fa\u00e7ta g\u00f6r\u00fcnecek ad\u0131n','name',50,{autocomplete:'nickname'});
-  input('Kullan\u0131c\u0131 ad\u0131','username',24,{minLength:3,pattern:'[a-zA-Z0-9_]{3,24}',autocomplete:'username'});
+  input('Kullan\u0131c\u0131 ad\u0131','username',24,{...(register ? {minLength:3,pattern:'[a-zA-Z0-9_]{3,24}',title:'3-24 karakter: a-z, 0-9 veya alt \u00e7izgi'} : {}),autocomplete:'username',autocapitalize:'none',spellcheck:false});
   input('\u015eifre \u00b7 en az 8 karakter','password',128,{type:'password',minLength:8,autocomplete:register?'new-password':'current-password'});
   submit(register?'Hesap olu\u015ftur':'Giri\u015f yap',async data => {
+    data.username=data.username.trim();
     const result = await api(register?'register':'login','POST',data);
     saveToken(result.token);
     if(offline && !register && queryId && location.hash){location.reload();return;}
-    location.assign(link(register ? result.account.id : (queryId || result.account.id)));
+    const destination=link(result.account.id);
+    if(destination===location.href) location.reload(); else location.assign(destination);
   });
   action(register?'Zaten hesab\u0131m var':'Yeni hesap olu\u015ftur',() => auth(!register),true);
 }
@@ -357,7 +365,7 @@ function drawTree() {
   ctx.closePath();ctx.fill();ctx.shadowBlur=0;
 }
 drawTree();
-initialize();
+initialize().then(()=>{if(offline && !account && new URL(location.href).searchParams.has('giris'))auth(false);});
 let refreshing=false;
 setInterval(async()=>{
   if(!tree || document.hidden || refreshing || modal.open)return;

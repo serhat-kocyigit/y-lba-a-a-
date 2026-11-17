@@ -14,9 +14,9 @@ async function api(path, method = 'GET', data) {
       headers:{...(token && {Authorization:'Bearer '+token}),...(data && {'Content-Type':'application/json'})},
       ...(data && {body:JSON.stringify(data)})
     });
-  } catch { throw new Error('Sunucuya ula��lamad�. Tekrar dene.'); }
+  } catch { throw new Error('Sunucuya ulaşılamadı. Tekrar dene.'); }
   const value = await response.json().catch(() => ({}));
-  if (!response.ok) throw Object.assign(new Error(value.error || 'Sunucuya ula��lamad�.'),{status:response.status});
+  if (!response.ok) throw Object.assign(new Error(value.error || 'Sunucuya ulaşılamadı.'),{status:response.status});
   return value;
 }
 function saveToken(value) {
@@ -69,30 +69,30 @@ function submit(text, callback) {
   };
 }
 function auth(register) {
-  show(register ? 'A�ac�n� olu�tur' : 'Giri� yap');
-  if (register) input('A�a�ta g�r�necek ad�n','name',50,{autocomplete:'nickname'});
-  input('Kullan�c� ad�','username',24,{minLength:3,pattern:'[a-zA-Z0-9_]{3,24}',autocomplete:'username'});
-  input('�ifre � en az 8 karakter','password',128,{type:'password',minLength:8,autocomplete:register?'new-password':'current-password'});
-  submit(register?'Hesap olu�tur':'Giri� yap',async data => {
+  show(register ? 'Ağacını oluştur' : 'Giriş yap');
+  if (register) input('Ağaçta görünecek adın','name',50,{autocomplete:'nickname'});
+  input('Kullanıcı adı','username',24,{minLength:3,pattern:'[a-zA-Z0-9_]{3,24}',autocomplete:'username'});
+  input('Şifre · en az 8 karakter','password',128,{type:'password',minLength:8,autocomplete:register?'new-password':'current-password'});
+  submit(register?'Hesap oluştur':'Giriş yap',async data => {
     const result = await api(register?'register':'login','POST',data);
     saveToken(result.token);
     location.assign(link(register ? result.account.id : (queryId || result.account.id)));
   });
-  action(register?'Zaten hesab�m var':'Yeni hesap olu�tur',() => auth(!register),true);
+  action(register?'Zaten hesabım var':'Yeni hesap oluştur',() => auth(!register),true);
 }
 function writeLetter() {
-  show(tree.name + ' i�in bir mektup');
-  input('Ad�n','author',50,{autocomplete:'nickname'});
+  show(tree.name + ' için bir mektup');
+  input('Adın','author',50,{autocomplete:'nickname'});
   input('Mektubun','body',1000);
-  submit('A�aca as ?',async data => {
+  submit('Ağaca as ✦',async data => {
     await api('trees/'+tree.id+'/letters','POST',data);
     modal.close();
     await loadTree();
-    get('feedback').textContent = 'Mektubun a�aca as�ld�!';
+    get('feedback').textContent = 'Mektubun ağaca asıldı!';
   });
 }
 function openLetter(letter) {
-  show('? ' + letter.author);
+  show('✉ ' + letter.author);
   const body = document.createElement('p');
   body.className = 'letter-body';
   body.textContent = letter.body;
@@ -102,20 +102,20 @@ async function share() {
   const url = link(tree.id);
   try {
     await navigator.clipboard.writeText(url);
-    get('feedback').textContent = 'Payla��m linki kopyaland�.';
+    get('feedback').textContent = 'Paylaşım linki kopyalandı.';
   } catch {
-    show('Payla��m linki');
+    show('Paylaşım linki');
     const field = document.createElement('input');
     field.value = url;
     field.readOnly = true;
-    field.setAttribute('aria-label','Payla��m linki');
+    field.setAttribute('aria-label','Paylaşım linki');
     form.append(field);
     field.select();
   }
 }
 const positions = [[48,32],[57,41],[40,43],[51,51],[62,55],[35,56],[43,63],[56,66],[67,68],[29,71],[49,74],[60,77]];
 function render() {
-  get('account').textContent = account ? '��k�� yap' : 'Giri� yap';
+  get('account').textContent = account ? 'Çıkış yap' : 'Giriş yap';
   get('account').onclick = account ? async () => {
     try {
       await api('logout','POST');
@@ -126,45 +126,45 @@ function render() {
   const primary = get('primary');
   if (!tree) {
     if (queryId) {
-      get('title').textContent = 'A�a� a��lamad�';
-      get('description').textContent = 'Payla��m linkini kontrol et veya tekrar dene.';
+      get('title').textContent = 'Ağaç açılamadı';
+      get('description').textContent = 'Paylaşım linkini kontrol et veya tekrar dene.';
       primary.textContent = 'Tekrar dene';
       primary.onclick = () => location.reload();
     } else if (account) {
-      primary.textContent = 'A�ac�ma git ?';
+      primary.textContent = 'Ağacıma git ↗';
       primary.onclick = () => location.assign(link(account.id));
     } else primary.onclick = () => auth(true);
     return;
   }
-  get('title').textContent = tree.name + ' � Dilek A�ac�';
+  get('title').textContent = tree.name + ' · Dilek Ağacı';
   get('placard').textContent = tree.name;
   get('description').textContent = tree.isOwner
-    ? 'Linkini sevdiklerine g�nder. Gelen mektuplar� a�ac�ndaki k�rm�z� s�slerden a�abilirsin.'
-    : 'Ad�n� yaz ve bu a�aca bir y�lba�� mektubu b�rak. Mektubunu yaln�zca a�ac�n sahibi okuyabilir.';
-  primary.textContent = tree.isOwner ? 'Payla��m linkini kopyala ?' : 'Mektup b�rak ?';
+    ? 'Linkini sevdiklerine gönder. Gelen mektupları ağacındaki kırmızı süslerden açabilirsin.'
+    : 'Adını yaz ve bu ağaca bir yılbaşı mektubu bırak. Mektubunu yalnızca ağacın sahibi okuyabilir.';
+  primary.textContent = tree.isOwner ? 'Paylaşım linkini kopyala ↗' : 'Mektup bırak ↗';
   primary.onclick = tree.isOwner ? share : writeLetter;
   const secondary = get('secondary');
   secondary.hidden = tree.isOwner;
-  secondary.textContent = account ? 'A�ac�m' : 'Kendi a�ac�m� olu�tur';
+  secondary.textContent = account ? 'Ağacım' : 'Kendi ağacımı oluştur';
   secondary.onclick = account ? () => location.assign(link(account.id)) : () => auth(true);
   get('letters').hidden = !tree.isOwner;
-  get('count').textContent = '� ' + tree.count;
+  get('count').textContent = '· ' + tree.count;
   get('inbox').replaceChildren(...tree.letters.map(letter => {
     const button = document.createElement('button');
-    button.textContent = '? ' + letter.author;
+    button.textContent = '✉ ' + letter.author;
     button.onclick = () => openLetter(letter);
     return button;
   }));
-  if (tree.isOwner && !tree.count) get('inbox').textContent = '�lk mektubunu bekliyorsun.';
+  if (tree.isOwner && !tree.count) get('inbox').textContent = 'İlk mektubunu bekliyorsun.';
   const ornaments = positions.slice(0,tree.count).map(([x,y],i) => {
     const letter = tree.letters[i];
     const element = document.createElement(letter ? 'button' : 'span');
     element.className = 'ornament';
     element.style.left = x+'%';
     element.style.top = y+'%';
-    element.textContent = '?';
+    element.textContent = '✉';
     if (letter) {
-      element.setAttribute('aria-label',letter.author+' adl� ki�iden mektup');
+      element.setAttribute('aria-label',letter.author+' adlı kişiden mektup');
       element.onclick = () => openLetter(letter);
     } else element.setAttribute('aria-hidden','true');
     return element;
@@ -244,4 +244,3 @@ function drawTree() {
 }
 drawTree();
 initialize();
-

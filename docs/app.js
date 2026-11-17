@@ -7,7 +7,9 @@ let token = localStorage.getItem('dilek-token') || '';
 let account, tree;
 
 // GitHub Pages mode. Private keys and received letters stay on the owner's device.
-const offline = location.hostname.endsWith('.github.io') && !apiRoot;
+const pages = location.hostname.endsWith('.github.io') && !apiRoot;
+const legacy = new URL(location.href).searchParams.has('yerel') || (queryId && (location.hash || localStorage.getItem('dilek-owner:'+queryId)));
+const offline = pages && Boolean(legacy);
 const pack = bytes => btoa(Array.from(new Uint8Array(bytes), b => String.fromCharCode(b)).join('')).replaceAll('+','-').replaceAll('/','_').replace(/=+$/,'');
 const unpack = value => Uint8Array.from(atob(value.replaceAll('-','+').replaceAll('_','/')),c=>c.charCodeAt(0));
 const utf = new TextEncoder();
@@ -106,6 +108,15 @@ function showReply() {
 
 async function api(path, method = 'GET', data) {
   if(offline) return offlineApi(path,method,data);
+  if(pages){
+    const res=await fetch('https://coplmjmvyawnfvyibigl.supabase.co/rest/v1/rpc/dilek_api',{
+      method:'POST',headers:{'Content-Type':'application/json',apikey:'sb_publishable_Y1D-1pVkVYVovmljtjeYlg_M2YBYGSt'},
+      body:JSON.stringify({route:path,payload:data||{},ticket:token})
+    });
+    const result=await res.json();
+    if(!res.ok || result.error)throw Object.assign(Error(result.error||'Sunucuya ula\u015f\u0131lamad\u0131.'),{status:result.status||res.status});
+    return result;
+  }
   let response;
   try {
     response = await fetch(apiRoot + '/api/' + path,{
@@ -226,6 +237,9 @@ function render() {
     } catch (error) { get('feedback').textContent = error.message; }
   } : () => auth(false);
   const primary = get('primary');
+  if(pages && !queryId && !offline && Object.keys(localStorage).some(k=>k.startsWith('dilek-owner:'))){
+    const old=get('secondary');old.hidden=false;old.textContent='Bu cihazdaki eski a\u011fa\u00e7lar';old.onclick=()=>location.assign('?yerel=1');
+  }
   if (!tree) {
     if (queryId) {
       get('title').textContent = 'A\u011fa\u00e7 a\u00e7\u0131lamad\u0131';

@@ -44,8 +44,8 @@ async function offlineApi(path,method,data) {
     let user=localAccount(localStorage.getItem(alias));
     let secret;
     if(path==='register') {
-      if(!data.name.trim()) throw Error('Adını yaz.');
-      if(user) throw Error('Bu kullanıcı adı bu tarayıcıda kayıtlı.');
+      if(!data.name.trim()) throw Error('Ad\u0131n\u0131 yaz.');
+      if(user) throw Error('Bu kullan\u0131c\u0131 ad\u0131 bu taray\u0131c\u0131da kay\u0131tl\u0131.');
       const keys=await crypto.subtle.generateKey({...rsa,modulusLength:2048,publicExponent:new Uint8Array([1,0,1])},true,['encrypt','decrypt']);
       const id=crypto.randomUUID(), salt=pack(crypto.getRandomValues(new Uint8Array(16))), iv=crypto.getRandomValues(new Uint8Array(12));
       secret=pack(await crypto.subtle.exportKey('pkcs8',keys.privateKey));
@@ -57,24 +57,24 @@ async function offlineApi(path,method,data) {
       try {
         const key=await passwordKey(data.password,user.salt);
         secret=decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:unpack(user.iv)},key,unpack(user.locked)));
-      } catch { throw Error('Bu tarayıcıdaki kullanıcı adı veya şifre hatalı.'); }
+      } catch { throw Error('Bu taray\u0131c\u0131daki kullan\u0131c\u0131 ad\u0131 veya \u015fifre hatal\u0131.'); }
     }
     const account={id:user.id,name:user.name};
     sessionStorage.setItem('dilek-offline-session',JSON.stringify({account,secret}));
     return {account,token:'offline'};
   }
   if(path==='logout') {sessionStorage.removeItem('dilek-offline-session');return {};}
-  if(path==='me') {if(active)return active.account;throw Object.assign(Error('Giriş yap.'),{status:401});}
+  if(path==='me') {if(active)return active.account;throw Object.assign(Error('Giri\u015f yap.'),{status:401});}
   const id=path.split('/')[1], user=localAccount(id), fragment=location.hash.slice(1);
-  if(fragment.length>24000) throw Error('Bağlantı çok uzun.');
+  if(fragment.length>24000) throw Error('Ba\u011flant\u0131 \u00e7ok uzun.');
   const payload=fragment ? decodeObj(fragment) : {};
   const owner=active?.account.id===id;
-  if(payload.reply && !owner) throw Error('Mektubu açmak için ağacını oluşturduğun tarayıcıda giriş yap.');
+  if(payload.reply && !owner) throw Error('Mektubu a\u00e7mak i\u00e7in a\u011fac\u0131n\u0131 olu\u015fturdu\u011fun taray\u0131c\u0131da giri\u015f yap.');
   const info=user || payload;
-  if(info.id!==id || !info.pub || typeof info.name!=='string') throw Error('Ağacın tam paylaşım bağlantısını aç.');
+  if(info.id!==id || !info.pub || typeof info.name!=='string') throw Error('A\u011fac\u0131n tam payla\u015f\u0131m ba\u011flant\u0131s\u0131n\u0131 a\u00e7.');
   if(method==='POST') {
     const author=data.author.trim(), body=data.body.trim();
-    if(!author || !body) throw Error('Adını ve mektubunu yaz.');
+    if(!author || !body) throw Error('Ad\u0131n\u0131 ve mektubunu yaz.');
     const pub=await crypto.subtle.importKey('spki',unpack(info.pub),rsa,false,['encrypt']);
     const key=await crypto.subtle.generateKey({name:'AES-GCM',length:256},true,['encrypt','decrypt']);
     const iv=crypto.getRandomValues(new Uint8Array(12));
@@ -86,7 +86,7 @@ async function offlineApi(path,method,data) {
     const raw=await crypto.subtle.decrypt(rsa,privateKey,unpack(payload.key));
     const key=await crypto.subtle.importKey('raw',raw,'AES-GCM',false,['decrypt']);
     const letter=JSON.parse(decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:unpack(payload.iv)},key,unpack(payload.message))));
-    if(typeof letter.author!=='string'||typeof letter.body!=='string'||!/^[-a-f0-9]{36}$/.test(letter.id)||letter.author.length>50||letter.body.length>1000)throw Error('Geçersiz mektup.');
+    if(typeof letter.author!=='string'||typeof letter.body!=='string'||!/^[-a-f0-9]{36}$/.test(letter.id)||letter.author.length>50||letter.body.length>1000)throw Error('Ge\u00e7ersiz mektup.');
     localStorage.setItem('dilek-letter:'+id+':'+letter.id,JSON.stringify(letter));
     history.replaceState(null,'',offlineLink(id));
   }
@@ -94,13 +94,13 @@ async function offlineApi(path,method,data) {
   return {id,name:info.name,isOwner:owner,letters,count:letters.length};
 }
 function showReply() {
-  show('Mektubunu ulaştır');
+  show('Mektubunu ula\u015ft\u0131r');
   const label=document.createElement('label');
-  label.textContent='Bu bağlantıyı ağacın sahibine gönder. Açtığında mektubun ağacına asılacak.';
+  label.textContent='Bu ba\u011flant\u0131y\u0131 a\u011fac\u0131n sahibine g\u00f6nder. A\u00e7t\u0131\u011f\u0131nda mektubun a\u011fac\u0131na as\u0131lacak.';
   const field=document.createElement('textarea');field.value=responseLink;field.readOnly=true;
   label.append(field);form.append(label);
   action('Cevap linkini kopyala',async event=>{
-    try{await navigator.clipboard.writeText(field.value);event.target.textContent='Kopyalandı';}catch{field.select();}
+    try{await navigator.clipboard.writeText(field.value);event.target.textContent='Kopyaland\u0131';}catch{field.select();}
   });
 }
 
@@ -113,9 +113,9 @@ async function api(path, method = 'GET', data) {
       headers:{...(token && {Authorization:'Bearer '+token}),...(data && {'Content-Type':'application/json'})},
       ...(data && {body:JSON.stringify(data)})
     });
-  } catch { throw new Error('Sunucuya ulaşılamadı. Tekrar dene.'); }
+  } catch { throw new Error('Sunucuya ula\u015f\u0131lamad\u0131. Tekrar dene.'); }
   const value = await response.json().catch(() => ({}));
-  if (!response.ok) throw Object.assign(new Error(value.error || 'Sunucuya ulaşılamadı.'),{status:response.status});
+  if (!response.ok) throw Object.assign(new Error(value.error || 'Sunucuya ula\u015f\u0131lamad\u0131.'),{status:response.status});
   return value;
 }
 function saveToken(value) {
@@ -169,32 +169,32 @@ function submit(text, callback) {
   };
 }
 function auth(register) {
-  show(register ? 'Ağacını oluştur' : 'Giriş yap');
-  if (register) input('Ağaçta görünecek adın','name',50,{autocomplete:'nickname'});
-  input('Kullanıcı adı','username',24,{minLength:3,pattern:'[a-zA-Z0-9_]{3,24}',autocomplete:'username'});
-  input('Şifre · en az 8 karakter','password',128,{type:'password',minLength:8,autocomplete:register?'new-password':'current-password'});
-  submit(register?'Hesap oluştur':'Giriş yap',async data => {
+  show(register ? 'A\u011fac\u0131n\u0131 olu\u015ftur' : 'Giri\u015f yap');
+  if (register) input('A\u011fa\u00e7ta g\u00f6r\u00fcnecek ad\u0131n','name',50,{autocomplete:'nickname'});
+  input('Kullan\u0131c\u0131 ad\u0131','username',24,{minLength:3,pattern:'[a-zA-Z0-9_]{3,24}',autocomplete:'username'});
+  input('\u015eifre \u00b7 en az 8 karakter','password',128,{type:'password',minLength:8,autocomplete:register?'new-password':'current-password'});
+  submit(register?'Hesap olu\u015ftur':'Giri\u015f yap',async data => {
     const result = await api(register?'register':'login','POST',data);
     saveToken(result.token);
     if(offline && !register && queryId && location.hash){location.reload();return;}
     location.assign(link(register ? result.account.id : (queryId || result.account.id)));
   });
-  action(register?'Zaten hesabım var':'Yeni hesap oluştur',() => auth(!register),true);
+  action(register?'Zaten hesab\u0131m var':'Yeni hesap olu\u015ftur',() => auth(!register),true);
 }
 function writeLetter() {
-  show(tree.name + ' için bir mektup');
-  input('Adın','author',50,{autocomplete:'nickname'});
+  show(tree.name + ' i\u00e7in bir mektup');
+  input('Ad\u0131n','author',50,{autocomplete:'nickname'});
   input('Mektubun','body',1000);
-  submit('Ağaca as ✦',async data => {
+  submit('A\u011faca as \u2726',async data => {
     await api('trees/'+tree.id+'/letters','POST',data);
     if(offline){showReply();return;}
     modal.close();
     await loadTree();
-    get('feedback').textContent = 'Mektubun ağaca asıldı!';
+    get('feedback').textContent = 'Mektubun a\u011faca as\u0131ld\u0131!';
   });
 }
 function openLetter(letter) {
-  show('✉ ' + letter.author);
+  show('\u2709 ' + letter.author);
   const body = document.createElement('p');
   body.className = 'letter-body';
   body.textContent = letter.body;
@@ -204,20 +204,20 @@ async function share() {
   const url = link(tree.id);
   try {
     await navigator.clipboard.writeText(url);
-    get('feedback').textContent = 'Paylaşım linki kopyalandı.';
+    get('feedback').textContent = 'Payla\u015f\u0131m linki kopyaland\u0131.';
   } catch {
-    show('Paylaşım linki');
+    show('Payla\u015f\u0131m linki');
     const field = document.createElement('input');
     field.value = url;
     field.readOnly = true;
-    field.setAttribute('aria-label','Paylaşım linki');
+    field.setAttribute('aria-label','Payla\u015f\u0131m linki');
     form.append(field);
     field.select();
   }
 }
 const positions = [[48,32],[57,41],[40,43],[51,51],[62,55],[35,56],[43,63],[56,66],[67,68],[29,71],[49,74],[60,77]];
 function render() {
-  get('account').textContent = account ? 'Çıkış yap' : 'Giriş yap';
+  get('account').textContent = account ? '\u00c7\u0131k\u0131\u015f yap' : 'Giri\u015f yap';
   get('account').onclick = account ? async () => {
     try {
       await api('logout','POST');
@@ -228,49 +228,49 @@ function render() {
   const primary = get('primary');
   if (!tree) {
     if (queryId) {
-      get('title').textContent = 'Ağaç açılamadı';
-      get('description').textContent = 'Paylaşım linkini kontrol et veya tekrar dene.';
+      get('title').textContent = 'A\u011fa\u00e7 a\u00e7\u0131lamad\u0131';
+      get('description').textContent = 'Payla\u015f\u0131m linkini kontrol et veya tekrar dene.';
       primary.textContent = 'Tekrar dene';
       primary.onclick = () => location.reload();
     } else if (account) {
-      primary.textContent = 'Ağacıma git ↗';
+      primary.textContent = 'A\u011fac\u0131ma git \u2197';
       primary.onclick = () => location.assign(link(account.id));
      } else {
       primary.onclick = () => auth(true);
-      if (offline) get('description').textContent = 'Hesabını oluştur, yılbaşı ağacını paylaş. Daha sonra aynı tarayıcıda kullanıcı adın ve şifrenle giriş yapabilirsin.';
+      if (offline) get('description').textContent = 'Hesab\u0131n\u0131 olu\u015ftur, y\u0131lba\u015f\u0131 a\u011fac\u0131n\u0131 payla\u015f. Daha sonra ayn\u0131 taray\u0131c\u0131da kullan\u0131c\u0131 ad\u0131n ve \u015fifrenle giri\u015f yapabilirsin.';
     }
     return;
   }
-  get('title').textContent = tree.name + ' · Dilek Ağacı';
+  get('title').textContent = tree.name + ' \u00b7 Dilek A\u011fac\u0131';
   get('placard').textContent = tree.name;
   get('description').textContent = tree.isOwner
-    ? 'Linkini sevdiklerine gönder. Gelen mektupları ağacındaki kırmızı süslerden açabilirsin.'
-    : 'Adını yaz ve bu ağaca bir yılbaşı mektubu bırak. Mektubunu yalnızca ağacın sahibi okuyabilir.';
-  if(offline) get('description').textContent=tree.isOwner?'Ağaç linkini paylaş. Sana gelen mektup linklerini bu tarayıcıda açarak ağacına as.':'Mektubunu yaz ve oluşan şifreli bağlantıyı '+tree.name+' ile paylaş.';
-  primary.textContent = tree.isOwner ? 'Paylaşım linkini kopyala ↗' : 'Mektup bırak ↗';
+    ? 'Linkini sevdiklerine g\u00f6nder. Gelen mektuplar\u0131 a\u011fac\u0131ndaki k\u0131rm\u0131z\u0131 s\u00fcslerden a\u00e7abilirsin.'
+    : 'Ad\u0131n\u0131 yaz ve bu a\u011faca bir y\u0131lba\u015f\u0131 mektubu b\u0131rak. Mektubunu yaln\u0131zca a\u011fac\u0131n sahibi okuyabilir.';
+  if(offline) get('description').textContent=tree.isOwner?'A\u011fa\u00e7 linkini payla\u015f. Sana gelen mektup linklerini bu taray\u0131c\u0131da a\u00e7arak a\u011fac\u0131na as.':'Mektubunu yaz ve olu\u015fan \u015fifreli ba\u011flant\u0131y\u0131 '+tree.name+' ile payla\u015f.';
+  primary.textContent = tree.isOwner ? 'Payla\u015f\u0131m linkini kopyala \u2197' : 'Mektup b\u0131rak \u2197';
   primary.onclick = tree.isOwner ? share : writeLetter;
   const secondary = get('secondary');
   secondary.hidden = tree.isOwner;
-  secondary.textContent = account ? 'Ağacım' : 'Kendi ağacımı oluştur';
+  secondary.textContent = account ? 'A\u011fac\u0131m' : 'Kendi a\u011fac\u0131m\u0131 olu\u015ftur';
   secondary.onclick = account ? () => location.assign(link(account.id)) : () => auth(true);
   get('letters').hidden = !tree.isOwner;
-  get('count').textContent = '· ' + tree.count;
+  get('count').textContent = '\u00b7 ' + tree.count;
   get('inbox').replaceChildren(...tree.letters.map(letter => {
     const button = document.createElement('button');
-    button.textContent = '✉ ' + letter.author;
+    button.textContent = '\u2709 ' + letter.author;
     button.onclick = () => openLetter(letter);
     return button;
   }));
-  if (tree.isOwner && !tree.count) get('inbox').textContent = 'İlk mektubunu bekliyorsun.';
+  if (tree.isOwner && !tree.count) get('inbox').textContent = '\u0130lk mektubunu bekliyorsun.';
   const ornaments = positions.slice(0,tree.count).map(([x,y],i) => {
     const letter = tree.letters[i];
     const element = document.createElement(letter ? 'button' : 'span');
     element.className = 'ornament';
     element.style.left = x+'%';
     element.style.top = y+'%';
-    element.textContent = '✉';
+    element.textContent = '\u2709';
     if (letter) {
-      element.setAttribute('aria-label',letter.author+' adlı kişiden mektup');
+      element.setAttribute('aria-label',letter.author+' adl\u0131 ki\u015fiden mektup');
       element.onclick = () => openLetter(letter);
     } else element.setAttribute('aria-hidden','true');
     return element;
@@ -286,7 +286,7 @@ async function initialize() {
     try { account = await api('me'); }
     catch (error) { if (error.status === 401) saveToken(''); }
   }
-  if(offline && !queryId) get('description').textContent='Ağacını bu tarayıcıda oluştur. Linkini sevdiklerine gönder, onların yolladığı mektup linklerini açarak ağacını süsle.';
+  if(offline && !queryId) get('description').textContent='A\u011fac\u0131n\u0131 bu taray\u0131c\u0131da olu\u015ftur. Linkini sevdiklerine g\u00f6nder, onlar\u0131n yollad\u0131\u011f\u0131 mektup linklerini a\u00e7arak a\u011fac\u0131n\u0131 s\u00fcsle.';
   try { await loadTree(); }
   catch (error) { render(); get('feedback').textContent = error.message; }
 }

@@ -30,20 +30,20 @@ function reply(res, status, value) {
 function field(data, key, max, min = 1, trim = true) {
   const raw = data?.[key];
   const value = typeof raw === 'string' ? (trim ? raw.trim() : raw) : '';
-  if (value.length < min || value.length > max) fail(400, 'Alanlar� belirtilen uzunlukta doldurun.');
+  if (value.length < min || value.length > max) fail(400, 'Alanları belirtilen uzunlukta doldurun.');
   return value;
 }
 async function readBody(req) {
-  if (req.headers['content-type']?.split(';')[0] !== 'application/json') fail(415, 'Ge�ersiz istek bi�imi.');
+  if (req.headers['content-type']?.split(';')[0] !== 'application/json') fail(415, 'Geçersiz istek biçimi.');
   let size = 0;
   const chunks = [];
   for await (const chunk of req.iterator({destroyOnReturn:false})) {
     size += chunk.length;
-    if (size > 12000) { req.resume(); fail(413, 'Mesaj �ok uzun.'); }
+    if (size > 12000) { req.resume(); fail(413, 'Mesaj çok uzun.'); }
     chunks.push(chunk);
   }
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); }
-  catch { fail(400, 'Ge�ersiz istek.'); }
+  catch { fail(400, 'Geçersiz istek.'); }
 }
 const ownerFields = 'id, name';
 function sessionHash(req) {
@@ -65,7 +65,7 @@ function limit(req, group, max) {
   const key = group + ':' + req.socket.remoteAddress;
   let entry = rates.get(key);
   if (!entry || entry.until <= now) { entry = {count:0,until:now+60000}; rates.set(key,entry); }
-  if (++entry.count > max) fail(429, '�ok fazla deneme yap�ld�. Bir dakika sonra tekrar dene.');
+  if (++entry.count > max) fail(429, 'Çok fazla deneme yapıldı. Bir dakika sonra tekrar dene.');
 }
 setInterval(() => {
   for (const [key, entry] of rates) if (entry.until <= Date.now()) rates.delete(key);
@@ -77,13 +77,13 @@ const routes = {
     const data = await readBody(req);
     const name = field(data,'name',50);
     const username = field(data,'username',24,3).toLowerCase();
-    if (!/^[a-z0-9_]{3,24}$/.test(username)) fail(400, 'Kullan�c� ad� harf, rakam ve alt �izgi i�erebilir.');
+    if (!/^[a-z0-9_]{3,24}$/.test(username)) fail(400, 'Kullanıcı adı harf, rakam ve alt çizgi içerebilir.');
     const password = field(data,'password',128,8,false);
     const salt = randomBytes(16).toString('hex');
     const hash = (await derive(password,salt,64)).toString('hex');
     const id = randomUUID();
     const result = db.prepare('INSERT INTO accounts VALUES (?,?,?,?,?) ON CONFLICT(username) DO NOTHING').run(id,username,name,salt,hash);
-    if (!result.changes) fail(409, 'Bu kullan�c� ad� kullan�l�yor.');
+    if (!result.changes) fail(409, 'Bu kullanıcı adı kullanılıyor.');
     return createSession({id,name});
   },
   async 'POST /api/login'(req) {
@@ -93,7 +93,7 @@ const routes = {
     const password = field(data,'password',128,8,false);
     const account = db.prepare('SELECT * FROM accounts WHERE username=?').get(username);
     const hash = await derive(password,account?.salt || '00000000000000000000000000000000',64);
-    if (!account || !timingSafeEqual(hash,Buffer.from(account.hash,'hex'))) fail(401, 'Kullan�c� ad� veya �ifre hatal�.');
+    if (!account || !timingSafeEqual(hash,Buffer.from(account.hash,'hex'))) fail(401, 'Kullanıcı adı veya şifre hatalı.');
     return createSession(account);
   },
   'POST /api/logout'(req) {
@@ -102,7 +102,7 @@ const routes = {
   },
   'GET /api/me'(req) {
     const account = sessionOwner(req);
-    if (!account) fail(401, 'Tekrar giri� yap.');
+    if (!account) fail(401, 'Tekrar giriş yap.');
     return account;
   }
 };
@@ -123,10 +123,10 @@ const server = http.createServer(async (req,res) => {
       const route = routes[req.method+' '+path];
       if (route) { reply(res,200,await route(req)); return; }
       const match = new RegExp('^/api/trees/('+idPattern+')(/letters)?$').exec(path);
-      if (!match) fail(404, 'Sayfa bulunamad�.');
+      if (!match) fail(404, 'Sayfa bulunamadı.');
       const [,id,lettersPath] = match;
       const tree = db.prepare('SELECT '+ownerFields+' FROM accounts WHERE id=?').get(id);
-      if (!tree) fail(404,'Bu a�a� bulunamad�.');
+      if (!tree) fail(404,'Bu ağaç bulunamadı.');
       if (req.method === 'GET' && !lettersPath) {
         const count = db.prepare('SELECT count(*) AS total FROM letters WHERE tree=?').get(id).total;
         const isOwner = sessionOwner(req)?.id === id;
@@ -141,18 +141,17 @@ const server = http.createServer(async (req,res) => {
         db.prepare('INSERT INTO letters (tree,author,body,date) VALUES (?,?,?,?)').run(id,author,body,new Date().toISOString());
         reply(res,201,{}); return;
       }
-      fail(405,'Bu i�lem desteklenmiyor.');
+      fail(405,'Bu işlem desteklenmiyor.');
     }
     const file = path === '/' ? '/index.html' : path;
-    if (req.method !== 'GET' || !['/index.html','/config.js','/app.js','/style.css'].includes(file)) fail(404,'Sayfa bulunamad�.');
+    if (req.method !== 'GET' || !['/index.html','/config.js','/app.js','/style.css'].includes(file)) fail(404,'Sayfa bulunamadı.');
     const content = await readFile(resolve(root,'docs',file.slice(1)));
     res.writeHead(200,{'Content-Type':types[extname(file)]+'; charset=utf-8','Cache-Control':'no-cache',
       'Content-Security-Policy':"default-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"});
     res.end(content);
   } catch (error) {
     if (!error.status) console.error(error);
-    if (!res.headersSent) reply(res,error.status || 500,{error:error.status ? error.message : 'Bir sorun olu�tu. Tekrar dene.'});
+    if (!res.headersSent) reply(res,error.status || 500,{error:error.status ? error.message : 'Bir sorun oluştu. Tekrar dene.'});
   }
 });
-server.listen(port,process.env.HOST || '127.0.0.1',() => console.log('Dilek A�ac� http://localhost:'+port));
-
+server.listen(port,process.env.HOST || '127.0.0.1',() => console.log('Dilek Ağacı http://localhost:'+port));

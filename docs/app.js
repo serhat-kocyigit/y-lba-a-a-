@@ -221,21 +221,6 @@ function openLetter(letter) {
   body.textContent = letter.body;
   form.append(body);
 }
-async function share() {
-  const url = link(tree.id);
-  try {
-    await navigator.clipboard.writeText(url);
-    get('feedback').textContent = 'Payla\u015f\u0131m linki kopyaland\u0131.';
-  } catch {
-    show('Payla\u015f\u0131m linki');
-    const field = document.createElement('input');
-    field.value = url;
-    field.readOnly = true;
-    field.setAttribute('aria-label','Payla\u015f\u0131m linki');
-    form.append(field);
-    field.select();
-  }
-}
 const positions = [[48,32],[57,41],[40,43],[51,51],[62,55],[35,56],[43,63],[56,66],[67,68],[29,71],[49,74],[60,77]];
 function render() {
   get('account').textContent = account ? '\u00c7\u0131k\u0131\u015f yap' : 'Giri\u015f yap';
@@ -261,26 +246,20 @@ function render() {
       primary.onclick = () => location.assign(link(account.id));
      } else {
       primary.onclick = () => auth(true);
-      if (offline) get('description').textContent = 'Hesab\u0131n\u0131 olu\u015ftur, y\u0131lba\u015f\u0131 a\u011fac\u0131n\u0131 payla\u015f. Daha sonra ayn\u0131 taray\u0131c\u0131da kullan\u0131c\u0131 ad\u0131n ve \u015fifrenle giri\u015f yapabilirsin.';
+
     }
     return;
   }
   get('title').textContent = tree.name + ' \u00b7 Dilek A\u011fac\u0131';
   get('placard').textContent = tree.name;
-  get('description').textContent = tree.isOwner
-    ? 'Linkini sevdiklerine g\u00f6nder. Gelen mektuplar\u0131 a\u011fac\u0131ndaki k\u0131rm\u0131z\u0131 s\u00fcslerden a\u00e7abilirsin.'
-    : 'Ad\u0131n\u0131 yaz ve bu a\u011faca bir y\u0131lba\u015f\u0131 mektubu b\u0131rak. Mektubunu yaln\u0131zca a\u011fac\u0131n sahibi okuyabilir.';
-
-  primary.textContent = tree.isOwner ? 'Payla\u015f\u0131m linkini kopyala \u2197' : 'Mektup b\u0131rak \u2197';
-  primary.onclick = tree.isOwner ? share : writeLetter;
+  get('description').textContent = 'Dile\u011fini yaz\u0131p a\u011faca as. Gelen mektuplar\u0131 yaln\u0131zca a\u011fac\u0131n sahibi okuyabilir.';
+  primary.textContent = 'Dilek yaz \u2726';
+  primary.onclick = writeLetter;
   const secondary = get('secondary');
   secondary.hidden = tree.isOwner;
   secondary.textContent = account ? 'A\u011fac\u0131m' : 'Kendi a\u011fac\u0131m\u0131 olu\u015ftur';
   secondary.onclick = account ? () => location.assign(link(account.id)) : () => auth(true);
-  if(tree.isOwner){
-    primary.textContent='Dilek yaz \u2726';primary.onclick=writeLetter;
-    secondary.hidden=false;secondary.textContent='A\u011fac\u0131m\u0131 payla\u015f';secondary.onclick=share;
-  }
+
   get('letters').hidden = !tree.isOwner;
   get('count').textContent = '\u00b7 ' + tree.count;
   get('inbox').replaceChildren(...tree.letters.map(letter => {
@@ -314,7 +293,7 @@ async function initialize() {
     try { account = await api('me'); }
     catch (error) { if (error.status === 401) saveToken(''); }
   }
-  if(offline && !queryId) get('description').textContent='A\u011fac\u0131n\u0131 bu taray\u0131c\u0131da olu\u015ftur. Linkini sevdiklerine g\u00f6nder, onlar\u0131n yollad\u0131\u011f\u0131 mektup linklerini a\u00e7arak a\u011fac\u0131n\u0131 s\u00fcsle.';
+
   try { await loadTree(); }
   catch (error) { render(); get('feedback').textContent = error.message; }
 }

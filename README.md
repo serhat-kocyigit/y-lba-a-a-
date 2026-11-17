@@ -1,14 +1,13 @@
-# Dilek A�ac�
+# Dilek Ağacı
 
-Node.js 22.13+ ile proje k�k�nde `node server.mjs` �al��t�r�p http://localhost:8787 adresini a�. Ek paket kurulumu gerekmez. Yerel SQLite dosyas� ilk a��l��ta olu�ur.
+Node.js 22.13+ ile proje kökünde `node server.mjs` çalıştırıp http://localhost:8787 adresini aç. Ek paket kurulumu gerekmez. Yerel SQLite dosyası ilk açılışta oluşur.
 
-Bir hesap olu�tur, payla��m linkini kopyala ve gizli pencerede a�. Ziyaret�i ad�n� ve mektubunu girer. Hesap sahibi kendi a�ac�nda s�se veya gelen mektuplara t�klayarak g�ndereni ve mesaj� g�r�r.
+Bir hesap oluştur, paylaşım linkini kopyala ve gizli pencerede aç. Ziyaretçi adını ve mektubunu girer. Hesap sahibi kendi ağacında süse veya gelen mektuplara tıklayarak göndereni ve mesajı görür.
 
-## GitHub Pages yay�n�
+## GitHub Pages yayını
 
-1. Bu klas�rdeki dosyalar� repoya koy. GitHub repo ayarlar�nda Pages kayna�� olarak `main` ve `/docs` klas�r�n� se�.
-2. `server.mjs` dosyas�n� Node 22.13+ ve kal�c� disk destekleyen bir HTTPS bar�nd�rma ortam�nda �al��t�r. Ba�lang�� komutu `node server.mjs`. Ortam de�i�kenlerine `HOST=0.0.0.0`, `ALLOWED_ORIGIN=https://KULLANICI.github.io` ve `DB_PATH` i�in kal�c� diskteki SQLite dosyas�n�n mutlak yolunu yaz. Sa�lay�c�n�n verdi�i `PORT` de�eri kullan�l�r. Bir sunucu �rne�i �al��t�r.
-3. `docs/config.js` i�indeki `DILEK_API` de�erine HTTPS API k�k adresini yaz ve repoya g�nder. �rnek: `https://api.ornek.com`. HTTPS API'yi sa�lay�c�n�n TLS katman� �zerinden sun.
+1. Bu klasördeki dosyaları repoya koy. GitHub repo ayarlarında Pages kaynağı olarak `main` ve `/docs` klasörünü seç.
+2. `server.mjs` dosyasını Node 22.13+ ve kalıcı disk destekleyen bir HTTPS barındırma ortamında çalıştır. Başlangıç komutu `node server.mjs`. Ortam değişkenlerine `HOST=0.0.0.0`, `ALLOWED_ORIGIN=https://KULLANICI.github.io` ve `DB_PATH` için kalıcı diskteki SQLite dosyasının mutlak yolunu yaz. Sağlayıcının verdiği `PORT` değeri kullanılır. Bir sunucu örneği çalıştır.
+3. `docs/config.js` içindeki `DILEK_API` değerine HTTPS API kök adresini yaz ve repoya gönder. Örnek: `https://api.ornek.com`. HTTPS API'yi sağlayıcının TLS katmanı üzerinden sun.
 
-GitHub Pages �n y�z� sunar. Hesaplar ve ziyaret�i mektuplar� HTTPS API'nin SQLite veritaban�nda saklan�r. Yerel ba�lant�lar yaln�zca yerel deneme i�indir. Uygulama tek sunucu �rne�i ve k���k gruplar i�in tasarland�. Ters vekil arkas�nda h�z s�n�r� vekilin ba�lant� adresine uygulan�r. Bu s�r�mde �ifre s�f�rlama bulunmuyor.
-
+GitHub Pages ön yüzü sunar. Hesaplar ve ziyaretçi mektupları HTTPS API'nin SQLite veritabanında saklanır. Yerel bağlantılar yalnızca yerel deneme içindir. Uygulama tek sunucu örneği ve küçük gruplar için tasarlandı. Ters vekil arkasında hız sınırı vekilin bağlantı adresine uygulanır. Bu sürümde şifre sıfırlama bulunmuyor.

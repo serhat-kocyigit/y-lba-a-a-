@@ -6,7 +6,106 @@ const queryId = new URL(location.href).searchParams.get('agac');
 let token = localStorage.getItem('dilek-token') || '';
 let account, tree;
 
+// GitHub Pages mode. Private keys and received letters stay on the owner's device.
+const offline = location.hostname.endsWith('.github.io') && !apiRoot;
+const pack = bytes => btoa(Array.from(new Uint8Array(bytes), b => String.fromCharCode(b)).join('')).replaceAll('+','-').replaceAll('/','_').replace(/=+$/,'');
+const unpack = value => Uint8Array.from(atob(value.replaceAll('-','+').replaceAll('_','/')),c=>c.charCodeAt(0));
+const utf = new TextEncoder();
+const decode = bytes => new TextDecoder().decode(bytes);
+const encodeObj = obj => pack(utf.encode(JSON.stringify(obj)));
+const decodeObj = value => JSON.parse(decode(unpack(value)));
+const accountKey = id => 'dilek-owner:'+id;
+const localAccount = id => JSON.parse(localStorage.getItem(accountKey(id)) || 'null');
+const rsa = {name:'RSA-OAEP',hash:'SHA-256'};
+let responseLink;
+function offlineLink(id) {
+  const url = new URL(location.href);
+  url.search=''; url.hash='';
+  if (id) {
+    url.searchParams.set('agac',id);
+    const user = localAccount(id);
+    if (user) url.hash=encodeObj({id,name:user.name,pub:user.pub});
+    else if (id===queryId) url.hash=location.hash;
+  }
+  return url.href;
+}
+async function passwordKey(password,salt) {
+  const base=await crypto.subtle.importKey('raw',utf.encode(password),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt:unpack(salt),iterations:210000,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+}
+function session() {
+  return JSON.parse(sessionStorage.getItem('dilek-offline-session') || 'null');
+}
+async function offlineApi(path,method,data) {
+  const active=session();
+  if(path==='register' || path==='login') {
+    const username=data.username.trim().toLowerCase();
+    const alias='dilek-login:'+username;
+    let user=localAccount(localStorage.getItem(alias));
+    let secret;
+    if(path==='register') {
+      if(!data.name.trim()) throw Error('Adını yaz.');
+      if(user) throw Error('Bu kullanıcı adı bu tarayıcıda kayıtlı.');
+      const keys=await crypto.subtle.generateKey({...rsa,modulusLength:2048,publicExponent:new Uint8Array([1,0,1])},true,['encrypt','decrypt']);
+      const id=crypto.randomUUID(), salt=pack(crypto.getRandomValues(new Uint8Array(16))), iv=crypto.getRandomValues(new Uint8Array(12));
+      secret=pack(await crypto.subtle.exportKey('pkcs8',keys.privateKey));
+      const key=await passwordKey(data.password,salt);
+      user={id,name:data.name.trim(),salt,iv:pack(iv),pub:pack(await crypto.subtle.exportKey('spki',keys.publicKey)),locked:pack(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,utf.encode(secret)))};
+      localStorage.setItem(accountKey(id),JSON.stringify(user));
+      localStorage.setItem(alias,id);
+    } else {
+      try {
+        const key=await passwordKey(data.password,user.salt);
+        secret=decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:unpack(user.iv)},key,unpack(user.locked)));
+      } catch { throw Error('Bu tarayıcıdaki kullanıcı adı veya şifre hatalı.'); }
+    }
+    const account={id:user.id,name:user.name};
+    sessionStorage.setItem('dilek-offline-session',JSON.stringify({account,secret}));
+    return {account,token:'offline'};
+  }
+  if(path==='logout') {sessionStorage.removeItem('dilek-offline-session');return {};}
+  if(path==='me') {if(active)return active.account;throw Object.assign(Error('Giriş yap.'),{status:401});}
+  const id=path.split('/')[1], user=localAccount(id), fragment=location.hash.slice(1);
+  if(fragment.length>24000) throw Error('Bağlantı çok uzun.');
+  const payload=fragment ? decodeObj(fragment) : {};
+  const owner=active?.account.id===id;
+  if(payload.reply && !owner) throw Error('Mektubu açmak için ağacını oluşturduğun tarayıcıda giriş yap.');
+  const info=user || payload;
+  if(info.id!==id || !info.pub || typeof info.name!=='string') throw Error('Ağacın tam paylaşım bağlantısını aç.');
+  if(method==='POST') {
+    const author=data.author.trim(), body=data.body.trim();
+    if(!author || !body) throw Error('Adını ve mektubunu yaz.');
+    const pub=await crypto.subtle.importKey('spki',unpack(info.pub),rsa,false,['encrypt']);
+    const key=await crypto.subtle.generateKey({name:'AES-GCM',length:256},true,['encrypt','decrypt']);
+    const iv=crypto.getRandomValues(new Uint8Array(12));
+    const envelope={id,reply:true,iv:pack(iv),key:pack(await crypto.subtle.encrypt(rsa,pub,await crypto.subtle.exportKey('raw',key))),message:pack(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,utf.encode(JSON.stringify({id:crypto.randomUUID(),author,body}))))};
+    const url=new URL(location.href);url.hash=encodeObj(envelope);responseLink=url.href;return {};
+  }
+  if(owner && payload.reply) {
+    const privateKey=await crypto.subtle.importKey('pkcs8',unpack(active.secret),rsa,false,['decrypt']);
+    const raw=await crypto.subtle.decrypt(rsa,privateKey,unpack(payload.key));
+    const key=await crypto.subtle.importKey('raw',raw,'AES-GCM',false,['decrypt']);
+    const letter=JSON.parse(decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:unpack(payload.iv)},key,unpack(payload.message))));
+    if(typeof letter.author!=='string'||typeof letter.body!=='string'||!/^[-a-f0-9]{36}$/.test(letter.id)||letter.author.length>50||letter.body.length>1000)throw Error('Geçersiz mektup.');
+    localStorage.setItem('dilek-letter:'+id+':'+letter.id,JSON.stringify(letter));
+    history.replaceState(null,'',offlineLink(id));
+  }
+  const letters=owner?Object.keys(localStorage).filter(k=>k.startsWith('dilek-letter:'+id+':')).map(k=>JSON.parse(localStorage.getItem(k))):[];
+  return {id,name:info.name,isOwner:owner,letters,count:letters.length};
+}
+function showReply() {
+  show('Mektubunu ulaştır');
+  const label=document.createElement('label');
+  label.textContent='Bu bağlantıyı ağacın sahibine gönder. Açtığında mektubun ağacına asılacak.';
+  const field=document.createElement('textarea');field.value=responseLink;field.readOnly=true;
+  label.append(field);form.append(label);
+  action('Cevap linkini kopyala',async event=>{
+    try{await navigator.clipboard.writeText(field.value);event.target.textContent='Kopyalandı';}catch{field.select();}
+  });
+}
+
 async function api(path, method = 'GET', data) {
+  if(offline) return offlineApi(path,method,data);
   let response;
   try {
     response = await fetch(apiRoot + '/api/' + path,{
@@ -25,6 +124,7 @@ function saveToken(value) {
   else localStorage.removeItem('dilek-token');
 }
 function link(id) {
+  if(offline) return offlineLink(id);
   const url = new URL(location.href);
   url.search = '';
   url.hash = '';
@@ -76,6 +176,7 @@ function auth(register) {
   submit(register?'Hesap oluştur':'Giriş yap',async data => {
     const result = await api(register?'register':'login','POST',data);
     saveToken(result.token);
+    if(offline && !register && queryId && location.hash){location.reload();return;}
     location.assign(link(register ? result.account.id : (queryId || result.account.id)));
   });
   action(register?'Zaten hesabım var':'Yeni hesap oluştur',() => auth(!register),true);
@@ -86,6 +187,7 @@ function writeLetter() {
   input('Mektubun','body',1000);
   submit('Ağaca as ✦',async data => {
     await api('trees/'+tree.id+'/letters','POST',data);
+    if(offline){showReply();return;}
     modal.close();
     await loadTree();
     get('feedback').textContent = 'Mektubun ağaca asıldı!';
@@ -141,6 +243,7 @@ function render() {
   get('description').textContent = tree.isOwner
     ? 'Linkini sevdiklerine gönder. Gelen mektupları ağacındaki kırmızı süslerden açabilirsin.'
     : 'Adını yaz ve bu ağaca bir yılbaşı mektubu bırak. Mektubunu yalnızca ağacın sahibi okuyabilir.';
+  if(offline) get('description').textContent=tree.isOwner?'Ağaç linkini paylaş. Sana gelen mektup linklerini bu tarayıcıda açarak ağacına as.':'Mektubunu yaz ve oluşan şifreli bağlantıyı '+tree.name+' ile paylaş.';
   primary.textContent = tree.isOwner ? 'Paylaşım linkini kopyala ↗' : 'Mektup bırak ↗';
   primary.onclick = tree.isOwner ? share : writeLetter;
   const secondary = get('secondary');
@@ -176,10 +279,11 @@ async function loadTree() {
   render();
 }
 async function initialize() {
-  if (token) {
+  if (offline ? session() : token) {
     try { account = await api('me'); }
     catch (error) { if (error.status === 401) saveToken(''); }
   }
+  if(offline && !queryId) get('description').textContent='Ağacını bu tarayıcıda oluştur. Linkini sevdiklerine gönder, onların yolladığı mektup linklerini açarak ağacını süsle.';
   try { await loadTree(); }
   catch (error) { render(); get('feedback').textContent = error.message; }
 }

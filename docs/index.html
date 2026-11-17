@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="tr">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101e1b"><title>Dilek A�ac�</title><link rel="stylesheet" href="style.css"><script defer src="config.js"></script><script defer src="app.js"></script></head>
+<body>
+<header class="wrap"><a class="brand" href="./">? <span>Dilek A�ac�</span></a><button class="quiet" id="account">Giri� yap</button></header>
+<main class="wrap">
+<section class="hero">
+<div class="intro">
+<p class="eyebrow"><span></span> YILBA�INA �ZEL</p>
+<h1 id="title">K���k mektuplar,<br><em>b�y�k dilekler.</em></h1>
+<p id="description">Kendi y�lba�� a�ac�n� kur, linkini sevdiklerine g�nder. Onlar�n yazd��� her mektup, a�ac�nda bir s�se d�n��s�n.</p>
+<div class="actions"><button id="primary">A�ac�m� olu�tur <span>?</span></button><button class="quiet" id="secondary" hidden>A�ac�m</button></div>
+<p id="feedback" role="status"></p>
+</div>
+<div class="scene" aria-label="S�sl� y�lba�� a�ac�">
+<canvas id="tree" width="1040" height="1040" aria-hidden="true"></canvas>
+<div class="ornaments" id="ornaments"></div>
+<div class="placard"><span>?</span> <span id="placard">Bir dilek tut</span> <span>?</span></div>
+</div>
+</section>
+<section id="letters" hidden><h2>Gelen mektuplar <span id="count"></span></h2><div id="inbox"></div></section>
+</main>
+<footer class="wrap">? <span>Yeni y�l�n g�zel ge�sin.</span></footer>
+<dialog id="modal"><button class="close quiet" id="close" aria-label="Kapat">�</button><h2 id="modal-title"></h2><form id="form"></form><p id="error" role="alert"></p></dialog>
+</body></html>
+

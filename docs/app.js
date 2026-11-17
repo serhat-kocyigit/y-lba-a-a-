@@ -19,7 +19,7 @@ const decodeObj = value => JSON.parse(decode(unpack(value)));
 const accountKey = id => 'dilek-owner:'+id;
 const localAccount = id => JSON.parse(localStorage.getItem(accountKey(id)) || 'null');
 const rsa = {name:'RSA-OAEP',hash:'SHA-256'};
-let responseLink;
+
 function offlineLink(id) {
   const url = new URL(location.href);
   url.search=''; url.hash='';
@@ -74,6 +74,12 @@ async function offlineApi(path,method,data) {
   if(payload.reply && !owner) throw Error('Mektubu a\u00e7mak i\u00e7in a\u011fac\u0131n\u0131 olu\u015fturdu\u011fun taray\u0131c\u0131da giri\u015f yap.');
   const info=user || payload;
   if(info.id!==id || !info.pub || typeof info.name!=='string') throw Error('A\u011fac\u0131n tam payla\u015f\u0131m ba\u011flant\u0131s\u0131n\u0131 a\u00e7.');
+  const box=pack(await crypto.subtle.digest('SHA-256',utf.encode(id+':'+info.pub)));
+  async function mail(item,after_seq=null){
+    const res=await fetch('https://coplmjmvyawnfvyibigl.supabase.co/rest/v1/rpc/dilek_mail',{method:'POST',headers:{'Content-Type':'application/json',apikey:'sb_publishable_Y1D-1pVkVYVovmljtjeYlg_M2YBYGSt'},body:JSON.stringify({box,item,after_seq})});
+    if(!res.ok)throw Error('Mektup servisine ula\u015f\u0131lamad\u0131.');
+    return res.json();
+  }
   if(method==='POST') {
     const author=data.author.trim(), body=data.body.trim();
     if(!author || !body) throw Error('Ad\u0131n\u0131 ve mektubunu yaz.');
@@ -81,31 +87,35 @@ async function offlineApi(path,method,data) {
     const key=await crypto.subtle.generateKey({name:'AES-GCM',length:256},true,['encrypt','decrypt']);
     const iv=crypto.getRandomValues(new Uint8Array(12));
     const envelope={id,reply:true,iv:pack(iv),key:pack(await crypto.subtle.encrypt(rsa,pub,await crypto.subtle.exportKey('raw',key))),message:pack(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,utf.encode(JSON.stringify({id:crypto.randomUUID(),author,body}))))};
-    const url=new URL(location.href);url.hash=encodeObj(envelope);responseLink=url.href;return {};
+    await mail(envelope);return {};
   }
-  if(owner && payload.reply) {
+  const cursorKey='dilek-cursor:'+box;
+  let cursor=Number(localStorage.getItem(cursorKey)||0);
+  let batch=await mail(null,owner?cursor:null);
+  if(owner){
     const privateKey=await crypto.subtle.importKey('pkcs8',unpack(active.secret),rsa,false,['decrypt']);
-    const raw=await crypto.subtle.decrypt(rsa,privateKey,unpack(payload.key));
+    async function receive(entry){
+      const raw=await crypto.subtle.decrypt(rsa,privateKey,unpack(entry.key));
     const key=await crypto.subtle.importKey('raw',raw,'AES-GCM',false,['decrypt']);
-    const letter=JSON.parse(decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:unpack(payload.iv)},key,unpack(payload.message))));
+    const letter=JSON.parse(decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:unpack(entry.iv)},key,unpack(entry.message))));
     if(typeof letter.author!=='string'||typeof letter.body!=='string'||!/^[-a-f0-9]{36}$/.test(letter.id)||letter.author.length>50||letter.body.length>1000)throw Error('Ge\u00e7ersiz mektup.');
     localStorage.setItem('dilek-letter:'+id+':'+letter.id,JSON.stringify(letter));
-    history.replaceState(null,'',offlineLink(id));
+
+    }
+    if(payload.reply){await receive(payload);history.replaceState(null,'',offlineLink(id));}
+    while(batch.items.length){
+      for(const row of batch.items){
+        try{await receive(row.envelope);}catch(e){if(e.name==='QuotaExceededError')throw e;}
+        cursor=row.seq;
+      }
+      localStorage.setItem(cursorKey,String(cursor));
+      if(batch.items.length<100)break;
+      batch=await mail(null,cursor);
+    }
   }
   const letters=owner?Object.keys(localStorage).filter(k=>k.startsWith('dilek-letter:'+id+':')).map(k=>JSON.parse(localStorage.getItem(k))):[];
-  return {id,name:info.name,isOwner:owner,letters,count:letters.length};
+  return {id,name:info.name,isOwner:owner,letters,count:owner?letters.length:batch.count};
 }
-function showReply() {
-  show('Mektubunu ula\u015ft\u0131r');
-  const label=document.createElement('label');
-  label.textContent='Bu ba\u011flant\u0131y\u0131 a\u011fac\u0131n sahibine g\u00f6nder. A\u00e7t\u0131\u011f\u0131nda mektubun a\u011fac\u0131na as\u0131lacak.';
-  const field=document.createElement('textarea');field.value=responseLink;field.readOnly=true;
-  label.append(field);form.append(label);
-  action('Cevap linkini kopyala',async event=>{
-    try{await navigator.clipboard.writeText(field.value);event.target.textContent='Kopyaland\u0131';}catch{field.select();}
-  });
-}
-
 async function api(path, method = 'GET', data) {
   if(offline) return offlineApi(path,method,data);
   if(pages){
@@ -198,7 +208,7 @@ function writeLetter() {
   input('Mektubun','body',1000);
   submit('A\u011faca as \u2726',async data => {
     await api('trees/'+tree.id+'/letters','POST',data);
-    if(offline){showReply();return;}
+
     modal.close();
     await loadTree();
     get('feedback').textContent = 'Mektubun a\u011faca as\u0131ld\u0131!';
@@ -260,13 +270,17 @@ function render() {
   get('description').textContent = tree.isOwner
     ? 'Linkini sevdiklerine g\u00f6nder. Gelen mektuplar\u0131 a\u011fac\u0131ndaki k\u0131rm\u0131z\u0131 s\u00fcslerden a\u00e7abilirsin.'
     : 'Ad\u0131n\u0131 yaz ve bu a\u011faca bir y\u0131lba\u015f\u0131 mektubu b\u0131rak. Mektubunu yaln\u0131zca a\u011fac\u0131n sahibi okuyabilir.';
-  if(offline) get('description').textContent=tree.isOwner?'A\u011fa\u00e7 linkini payla\u015f. Sana gelen mektup linklerini bu taray\u0131c\u0131da a\u00e7arak a\u011fac\u0131na as.':'Mektubunu yaz ve olu\u015fan \u015fifreli ba\u011flant\u0131y\u0131 '+tree.name+' ile payla\u015f.';
+
   primary.textContent = tree.isOwner ? 'Payla\u015f\u0131m linkini kopyala \u2197' : 'Mektup b\u0131rak \u2197';
   primary.onclick = tree.isOwner ? share : writeLetter;
   const secondary = get('secondary');
   secondary.hidden = tree.isOwner;
   secondary.textContent = account ? 'A\u011fac\u0131m' : 'Kendi a\u011fac\u0131m\u0131 olu\u015ftur';
   secondary.onclick = account ? () => location.assign(link(account.id)) : () => auth(true);
+  if(tree.isOwner){
+    primary.textContent='Dilek yaz \u2726';primary.onclick=writeLetter;
+    secondary.hidden=false;secondary.textContent='A\u011fac\u0131m\u0131 payla\u015f';secondary.onclick=share;
+  }
   get('letters').hidden = !tree.isOwner;
   get('count').textContent = '\u00b7 ' + tree.count;
   get('inbox').replaceChildren(...tree.letters.map(letter => {
@@ -365,3 +379,9 @@ function drawTree() {
 }
 drawTree();
 initialize();
+let refreshing=false;
+setInterval(async()=>{
+  if(!tree || document.hidden || refreshing || modal.open)return;
+  refreshing=true;
+  try{await loadTree();}catch{}finally{refreshing=false;}
+},10000);

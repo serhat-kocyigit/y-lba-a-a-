@@ -235,7 +235,10 @@ function render() {
     } else if (account) {
       primary.textContent = 'Ağacıma git ↗';
       primary.onclick = () => location.assign(link(account.id));
-    } else primary.onclick = () => auth(true);
+     } else {
+      primary.onclick = () => auth(true);
+      if (offline) get('description').textContent = 'Hesabını oluştur, yılbaşı ağacını paylaş. Daha sonra aynı tarayıcıda kullanıcı adın ve şifrenle giriş yapabilirsin.';
+    }
     return;
   }
   get('title').textContent = tree.name + ' · Dilek Ağacı';

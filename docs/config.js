@@ -1,3 +1,2 @@
-// GitHub Pages yay�n� i�in HTTPS API adresini girin. Yerelde bo� b�rak�n.
+// GitHub Pages yayını için HTTPS API adresini girin. Yerelde boş bırakın.
 window.DILEK_API = "";
-
